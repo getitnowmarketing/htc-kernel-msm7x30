@@ -66,6 +66,9 @@
 #define VDD_RAW(mv) (((MV(mv) / V_STEP) - 30) | VREG_DATA)
 
 #define MAX_AXI_KHZ 192000
+#define 7X30_ACPU_MIN_UV_MV 750U
+#define 7X30_ACPU_MAX_UV_MV 1450U
+
 
 struct clock_state {
 	struct clkctl_acpu_speed	*current_speed;
@@ -137,21 +140,21 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
         { MAX_AXI_KHZ, SRC_AXI, 1, 0, 61440000, 900, VDD_RAW(900) },
         { 245760, PLL_3,    5, 2,  61440000,  900, VDD_RAW(900) },
         { 368640, PLL_3,    5, 1,  122800000, 900, VDD_RAW(900) },
-        { 768000, PLL_1,    2, 0,  153600000, 1050, VDD_RAW(1050) },
+        { 768000, PLL_1,    2, 0,  153600000, 1000, VDD_RAW(1000) },
         /* Make sure any freq based from PLL_2 is a multiple of 19200! 
            Voltage tables are being very conservative and are not designed to
            be an undervolt of any sort. */
-        { 806400, PLL_2,    3, 0,  192000000, 1100, VDD_RAW(1100) },
-        { 1113600, PLL_2,   3, 0,  192000000, 1200, VDD_RAW(1200) },
-        { 1209600, PLL_2,   3, 0,  192000000, 1200, VDD_RAW(1200) },
-        { 1305600, PLL_2,   3, 0,  192000000, 1200, VDD_RAW(1200) },
-        { 1401600, PLL_2,   3, 0,  192000000, 1300, VDD_RAW(1300) },
-        { 1497600, PLL_2,   3, 0,  192000000, 1300, VDD_RAW(1300) },
-        { 1516800, PLL_2,   3, 0,  192000000, 1300, VDD_RAW(1300) },
+        { 806400, PLL_2,    3, 0,  192000000, 1050, VDD_RAW(1050) },
+        { 1113600, PLL_2,   3, 0,  192000000, 1075, VDD_RAW(1075) },
+        { 1209600, PLL_2,   3, 0,  192000000, 1125, VDD_RAW(1125) },
+        { 1305600, PLL_2,   3, 0,  192000000, 1175, VDD_RAW(1175) },
+        { 1401600, PLL_2,   3, 0,  192000000, 1225, VDD_RAW(1225) },
+        { 1497600, PLL_2,   3, 0,  192000000, 1250, VDD_RAW(1250) },
+        { 1516800, PLL_2,   3, 0,  192000000, 1250, VDD_RAW(1250) },
 #ifdef CONFIG_JESUS_PHONE
-        { 1612800, PLL_2,   3, 0,  192000000, 1400, VDD_RAW(1400) },
+        { 1612800, PLL_2,   3, 0,  192000000, 1350, VDD_RAW(1350) },
         { 1708800, PLL_2,   3, 0,  192000000, 1400, VDD_RAW(1400) },
-        { 1804800, PLL_2,   3, 0,  192000000, 1450, VDD_RAW(1450) },
+        { 1804800, PLL_2,   3, 0,  192000000, 1425, VDD_RAW(1425) },
 #endif
 
 #else
@@ -427,11 +430,11 @@ static unsigned int acpuclk_get_current_vdd(void)
 	unsigned int vdd_mv;
 
 	vdd_raw = msm_spm_get_vdd();
-	for (vdd_mv = 750; vdd_mv <= 1350; vdd_mv += 25)
+	for (vdd_mv = 7X30_ACPU_MIN_UV_MV; vdd_mv <= 7X30_ACPU_MAX_UV_MV; vdd_mv += V_STEP)
 		if (VDD_RAW(vdd_mv) == vdd_raw)
 			break;
 
-	if (vdd_mv > 1350)
+	if (vdd_mv > 7X30_ACPU_MAX_UV_MV)
 		return 0;
 
 	return vdd_mv;
@@ -450,7 +453,7 @@ static int acpuclk_update_freq_tbl(unsigned int acpu_khz, unsigned int acpu_vdd)
 		pr_err("%s: acpuclk invalid speed %d\n", __func__, acpu_khz);
 		return -1;
 	}
-	if (acpu_vdd > 1350 || acpu_vdd < 750) {
+	if (acpu_vdd > 7X30_ACPU_MAX_UV_MV || acpu_vdd < 7X30_ACPU_MIN_UV_MV) {
 		pr_err("%s: acpuclk vdd out of ranage, %d\n",
 			__func__, acpu_vdd);
 		return -2;
@@ -587,8 +590,8 @@ void __init pll2_fixup(void)
 	switch (pll2_l) {
 	case PLL2_1024_MHZ:
 		speed->acpu_clk_khz = 1024000;
-		speed->vdd_mv = 1200;
-		speed->vdd_raw = VDD_RAW(1200);
+		speed->vdd_mv = 1050;
+		speed->vdd_raw = VDD_RAW(1050);
 		cpu_freq->frequency = 1024000;
 		break;
 	case PLL2_1200_MHZ:
@@ -644,3 +647,41 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	register_acpuclock_debug_dev(&acpu_debug_7x30);
 }
 
+#ifdef CONFIG_CPU_FREQ_VDD_LEVELS
+
+ssize_t acpuclk_get_vdd_levels_str(char *buf)
+{
+int i, len = 0;
+if (buf)
+{
+mutex_lock(&drv_state.lock);
+for (i = 0; acpu_freq_tbl[i].acpu_clk_khz; i++)
+{
+len += sprintf(buf + len, "%8u: %4d\n", acpu_freq_tbl[i].acpu_clk_khz, acpu_freq_tbl[i].vdd_mv);
+}
+mutex_unlock(&drv_state.lock);
+}
+return len;
+}
+
+void acpuclk_set_vdd(unsigned int khz, int vdd)
+{
+int i;
+unsigned int new_vdd;
+vdd = vdd / V_STEP * V_STEP;
+mutex_lock(&drv_state.lock);
+for (i = 0; acpu_freq_tbl[i].acpu_clk_khz; i++)
+{
+if (khz == 0)
+new_vdd = min(max((acpu_freq_tbl[i].vdd_mv + vdd), 7X30_ACPU_MIN_UV_MV), 7X30_ACPU_MAX_UV_MV);
+else if (acpu_freq_tbl[i].acpu_clk_khz == khz)
+new_vdd = min(max((unsigned int)vdd, 7X30_ACPU_MIN_UV_MV), 7X30_ACPU_MAX_UV_MV);
+else continue;
+
+acpu_freq_tbl[i].vdd_mv = new_vdd;
+acpu_freq_tbl[i].vdd_raw = VDD_RAW(new_vdd);
+}
+mutex_unlock(&drv_state.lock);
+}
+
+#endif
