@@ -66,8 +66,8 @@
 #define VDD_RAW(mv) (((MV(mv) / V_STEP) - 30) | VREG_DATA)
 
 #define MAX_AXI_KHZ 192000
-#define 7X30_ACPU_MIN_UV_MV 750U
-#define 7X30_ACPU_MAX_UV_MV 1450U
+#define ACPU_MIN_UV_MV 750U
+#define ACPU_MAX_UV_MV 1450U
 
 
 struct clock_state {
@@ -430,11 +430,11 @@ static unsigned int acpuclk_get_current_vdd(void)
 	unsigned int vdd_mv;
 
 	vdd_raw = msm_spm_get_vdd();
-	for (vdd_mv = 7X30_ACPU_MIN_UV_MV; vdd_mv <= 7X30_ACPU_MAX_UV_MV; vdd_mv += V_STEP)
+	for (vdd_mv = ACPU_MIN_UV_MV; vdd_mv <= ACPU_MAX_UV_MV; vdd_mv += V_STEP)
 		if (VDD_RAW(vdd_mv) == vdd_raw)
 			break;
 
-	if (vdd_mv > 7X30_ACPU_MAX_UV_MV)
+	if (vdd_mv > ACPU_MAX_UV_MV)
 		return 0;
 
 	return vdd_mv;
@@ -453,7 +453,7 @@ static int acpuclk_update_freq_tbl(unsigned int acpu_khz, unsigned int acpu_vdd)
 		pr_err("%s: acpuclk invalid speed %d\n", __func__, acpu_khz);
 		return -1;
 	}
-	if (acpu_vdd > 7X30_ACPU_MAX_UV_MV || acpu_vdd < 7X30_ACPU_MIN_UV_MV) {
+	if (acpu_vdd > ACPU_MAX_UV_MV || acpu_vdd < ACPU_MIN_UV_MV) {
 		pr_err("%s: acpuclk vdd out of ranage, %d\n",
 			__func__, acpu_vdd);
 		return -2;
@@ -673,9 +673,9 @@ mutex_lock(&drv_state.lock);
 for (i = 0; acpu_freq_tbl[i].acpu_clk_khz; i++)
 {
 if (khz == 0)
-new_vdd = min(max((acpu_freq_tbl[i].vdd_mv + vdd), 7X30_ACPU_MIN_UV_MV), 7X30_ACPU_MAX_UV_MV);
+new_vdd = min(max((acpu_freq_tbl[i].vdd_mv + vdd), ACPU_MIN_UV_MV), ACPU_MAX_UV_MV);
 else if (acpu_freq_tbl[i].acpu_clk_khz == khz)
-new_vdd = min(max((unsigned int)vdd, 7X30_ACPU_MIN_UV_MV), 7X30_ACPU_MAX_UV_MV);
+new_vdd = min(max((unsigned int)vdd, ACPU_MIN_UV_MV), ACPU_MAX_UV_MV);
 else continue;
 
 acpu_freq_tbl[i].vdd_mv = new_vdd;
