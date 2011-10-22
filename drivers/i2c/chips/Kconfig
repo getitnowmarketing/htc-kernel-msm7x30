@@ -88,6 +88,11 @@ choice
 		bool "Vivo/Mecha Version"
 		help
 		  tps65200 Driver Vivo/Mecha Version
+
+	config TPS65200_LEXIKON
+		bool "Lexikon"
+		help
+		  tps65200 Driver Lexikon Version
 endchoice
 
 config SENSORS_BMA150

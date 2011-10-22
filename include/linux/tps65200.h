@@ -24,6 +24,9 @@
 #define NORMALTEMP_VREG		0XC9
 #define CHECK_INT1		0XCA
 #define CHECK_CONTROL		0xCB
+#ifdef CONFIG_TPS65200_LEXIKON
+#define NORMALTEMP_VREG_HV	0xCC
+#endif
 
 enum wled_ctl_t {
 	WLED_DISABLE = 0,
@@ -31,14 +34,43 @@ enum wled_ctl_t {
 	WLED_STATUS
 };
 
+#ifdef CONFIG_TPS65200_LEXIKON
+struct tps65200_chg_int_data {
+	int gpio_chg_int;
+	int tps65200_reg;
+	struct delayed_work int_work;
+};
+#endif
+
 struct tps65200_platform_data {
+#ifndef CONFIG_TPS65200_LEXIKON
 	int charger_check;
+#endif	
 	int gpio_chg_stat;
+#ifdef CONFIG_TPS65200_LEXIKON
+	int gpio_chg_int;
+#endif
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
+	int dq_result;
+#endif
+	
 };
 
-#if defined(CONFIG_TPS65200) || defined(CONFIG_TPS65200_VIVO)
+#if defined(CONFIG_TPS65200) || defined(CONFIG_TPS65200_VIVO) 
 extern int tps_set_charger_ctrl(u32 ctl);
+
+
+#elif defined(CONFIG_TPS65200_LEXIKON)
+struct tps65200_chg_int_notifier {
+	struct list_head notifier_link;
+	const char *name;
+	void (*func)(int int_reg, int value);
+};
+
+extern int tps_set_charger_ctrl(u32 ctl);
+extern int tps_register_notifier(struct tps65200_chg_int_notifier *notifier);
 #else
 static int tps_set_charger_ctrl(u32 ctl) {return 0 ; }
 #endif
 #endif
+
